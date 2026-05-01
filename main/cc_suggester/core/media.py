@@ -7,7 +7,12 @@ import shutil
 import subprocess
 from pathlib import Path
 
+from cc_suggester.core.errors import InvalidMediaError
 from cc_suggester.core.types import VideoMetadata
+
+
+VIDEO_EXTENSIONS = {".mp4", ".mkv", ".mov", ".avi", ".webm", ".m4v"}
+AUDIO_EXTENSIONS = {".wav", ".mp3", ".flac", ".aac", ".m4a", ".ogg"}
 
 
 def inspect_video(path: Path) -> VideoMetadata:
@@ -52,17 +57,82 @@ def inspect_video(path: Path) -> VideoMetadata:
     except (TypeError, ValueError):
         metadata.duration = None
 
+    has_video = False
+    has_audio = False
     for stream in payload.get("streams", []):
         if stream.get("codec_type") == "audio":
-            metadata.has_audio = True
+            has_audio = True
+            metadata.audio_codec = stream.get("codec_name")
+            sample_rate = stream.get("sample_rate")
+            metadata.audio_sample_rate = int(sample_rate) if sample_rate else None
+            metadata.audio_channels = stream.get("channels")
         if stream.get("codec_type") == "video":
+            has_video = True
+            metadata.video_codec = stream.get("codec_name")
             metadata.width = stream.get("width")
             metadata.height = stream.get("height")
             rate = stream.get("avg_frame_rate") or stream.get("r_frame_rate")
             metadata.fps = _parse_fraction(rate)
-    if metadata.has_audio is None:
-        metadata.has_audio = False
+    metadata.has_audio = has_audio
+    metadata.has_video = has_video
     return metadata
+
+
+def validate_media(
+    metadata: VideoMetadata,
+    *,
+    require_video: bool = True,
+    require_audio: bool = True,
+    allow_probe_failure: bool = False,
+) -> None:
+    """Validate input media for real processing backends."""
+
+    if not metadata.exists:
+        raise InvalidMediaError(
+            message=f"Input file was not found: {metadata.path}",
+            code="input_not_found",
+            suggestions=["Check the path and run ccs inspect /path/to/video.mp4."],
+        )
+
+    suffix = metadata.path.suffix.lower()
+    if require_video and suffix not in VIDEO_EXTENSIONS:
+        raise InvalidMediaError(
+            message=f"Input does not look like a supported video file: {metadata.path}",
+            code="unsupported_video_type",
+            suggestions=[
+                "Use MP4, MKV, MOV, AVI, WEBM, or M4V video input.",
+                "For demo-only testing, run with --allow-demo-input and mock backends.",
+            ],
+            details={"suffix": suffix or "none"},
+        )
+
+    if metadata.probe_error and not allow_probe_failure:
+        raise InvalidMediaError(
+            message="Video metadata could not be probed.",
+            code="probe_failed",
+            suggestions=[
+                "Install ffprobe/ffmpeg and ensure they are on PATH.",
+                "Run ccs doctor to inspect the environment.",
+            ],
+            details={"probe_error": metadata.probe_error},
+        )
+
+    if require_video and metadata.has_video is False:
+        raise InvalidMediaError(
+            message="No video stream was found in the input file.",
+            code="missing_video_stream",
+            suggestions=["Use a video file that contains a valid video stream."],
+        )
+
+    if require_audio and metadata.has_audio is False:
+        raise InvalidMediaError(
+            message="No audio stream was found in the input file.",
+            code="missing_audio_stream",
+            suggestions=[
+                "Use a video file that contains audio.",
+                "Run ccs inspect /path/to/video.mp4 to confirm stream details.",
+            ],
+        )
 
 
 def _parse_fraction(value: str | None) -> float | None:

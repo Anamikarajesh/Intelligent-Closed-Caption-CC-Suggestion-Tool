@@ -22,6 +22,14 @@ class InputNotFoundError(CCSuggesterError):
     """Raised when the requested input video does not exist."""
 
 
+class InvalidMediaError(CCSuggesterError):
+    """Raised when a file cannot be processed as required media."""
+
+
+class AudioExtractionError(CCSuggesterError):
+    """Raised when ffmpeg audio extraction fails."""
+
+
 class DeviceUnavailableError(CCSuggesterError):
     """Raised when a required device, such as CUDA, is unavailable."""
 

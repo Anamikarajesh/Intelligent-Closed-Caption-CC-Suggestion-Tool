@@ -9,7 +9,7 @@ from cc_suggester.audio.events import smooth_events
 from cc_suggester.core.config import PipelineConfig
 from cc_suggester.core.diagnostics import run_diagnostics
 from cc_suggester.core.errors import BackendUnavailableError, InputNotFoundError
-from cc_suggester.core.media import inspect_video
+from cc_suggester.core.media import AUDIO_EXTENSIONS, inspect_video, validate_media
 from cc_suggester.core.types import PipelineResult
 from cc_suggester.decision.scorer import decide_captions
 from cc_suggester.output.csv_report import write_csv_report
@@ -36,6 +36,7 @@ def analyze_video(video_path: Path, config: PipelineConfig) -> PipelineResult:
     metadata = inspect_video(video_path)
     diagnostics = run_diagnostics(config)
     run_dir = _run_dir(config.output_dir, video_path)
+    config.run_dir = run_dir
 
     try:
         audio_backend = get_audio_backend(config.audio_backend)
@@ -50,6 +51,15 @@ def analyze_video(video_path: Path, config: PipelineConfig) -> PipelineResult:
             ],
         ) from exc
 
+    if audio_backend.requires_valid_media or vision_backend.requires_valid_media:
+        is_audio_only_input = video_path.suffix.lower() in AUDIO_EXTENSIONS
+        validate_media(
+            metadata,
+            require_video=vision_backend.requires_valid_media or not is_audio_only_input,
+            require_audio=audio_backend.requires_audio_file,
+            allow_probe_failure=config.allow_demo_input or is_audio_only_input,
+        )
+
     audio_events = smooth_events(audio_backend.detect(video_path, metadata, config), config)
     reactions = vision_backend.analyze(video_path, metadata, audio_events, config)
     suggestions = decide_captions(audio_events, reactions, config)
@@ -62,6 +72,7 @@ def analyze_video(video_path: Path, config: PipelineConfig) -> PipelineResult:
         audio_events=audio_events,
         reactions=reactions,
         suggestions=suggestions,
+        artifacts=_collect_artifacts(run_dir),
     )
     result.files = _write_outputs(result, config)
     return result
@@ -119,3 +130,10 @@ def _run_dir(output_dir: Path, video_path: Path) -> Path:
     stem = video_path.stem or "video"
     safe_stem = "".join(char if char.isalnum() or char in {"-", "_"} else "-" for char in stem)
     return Path(output_dir) / safe_stem
+
+
+def _collect_artifacts(run_dir: Path) -> dict[str, Path]:
+    artifacts = {
+        "audio_wav": run_dir / "artifacts" / "audio.wav",
+    }
+    return {name: path for name, path in artifacts.items() if path.exists()}

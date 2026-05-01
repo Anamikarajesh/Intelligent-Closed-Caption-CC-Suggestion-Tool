@@ -13,6 +13,7 @@ class VisionBackend(ABC):
     """Interface implemented by visual reaction analysis backends."""
 
     name: str
+    requires_valid_media: bool = False
 
     @abstractmethod
     def analyze(

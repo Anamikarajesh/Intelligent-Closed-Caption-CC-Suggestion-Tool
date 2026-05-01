@@ -6,7 +6,7 @@ import shutil
 import subprocess
 from pathlib import Path
 
-from cc_suggester.core.errors import BackendUnavailableError
+from cc_suggester.core.errors import AudioExtractionError, BackendUnavailableError
 
 
 def extract_audio(video_path: Path, output_path: Path, sample_rate: int = 16000) -> Path:
@@ -34,5 +34,20 @@ def extract_audio(video_path: Path, output_path: Path, sample_rate: int = 16000)
         str(sample_rate),
         str(output_path),
     ]
-    subprocess.run(command, capture_output=True, check=True, text=True)
+    try:
+        subprocess.run(command, capture_output=True, check=True, text=True)
+    except subprocess.CalledProcessError as exc:
+        raise AudioExtractionError(
+            message="ffmpeg failed while extracting audio.",
+            code="audio_extraction_failed",
+            suggestions=[
+                "Run ccs inspect on the input file.",
+                "Try a different video container or re-encode the video.",
+                "Run ccs doctor to verify ffmpeg availability.",
+            ],
+            details={
+                "stderr": exc.stderr[-1000:] if exc.stderr else "",
+                "returncode": exc.returncode,
+            },
+        ) from exc
     return output_path

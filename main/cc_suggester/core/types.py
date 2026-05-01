@@ -22,6 +22,11 @@ class VideoMetadata:
     width: int | None = None
     height: int | None = None
     has_audio: bool | None = None
+    has_video: bool | None = None
+    audio_codec: str | None = None
+    video_codec: str | None = None
+    audio_sample_rate: int | None = None
+    audio_channels: int | None = None
     container: str | None = None
     probe_error: str | None = None
 
@@ -117,6 +122,7 @@ class PipelineResult:
     reactions: list[ReactionResult]
     suggestions: list[CaptionSuggestion]
     files: dict[str, Path] = field(default_factory=dict)
+    artifacts: dict[str, Path] = field(default_factory=dict)
 
     def to_dict(self) -> JsonDict:
         return {
@@ -128,4 +134,5 @@ class PipelineResult:
             "reactions": [reaction.to_dict() for reaction in self.reactions],
             "suggestions": [suggestion.to_dict() for suggestion in self.suggestions],
             "files": {name: str(path) for name, path in self.files.items()},
+            "artifacts": {name: str(path) for name, path in self.artifacts.items()},
         }

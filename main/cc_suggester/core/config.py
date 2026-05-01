@@ -29,6 +29,8 @@ class PipelineConfig:
     sample_window_before: float = 1.0
     sample_window_after: float = 1.0
     write_rejected_to_reports: bool = True
+    allow_demo_input: bool = False
+    run_dir: Path | None = None
 
     def __post_init__(self) -> None:
         if self.language not in SUPPORTED_LANGUAGES:
@@ -38,8 +40,11 @@ class PipelineConfig:
             supported = ", ".join(SUPPORTED_DEVICES)
             raise ValueError(f"Unsupported device '{self.device}'. Supported: {supported}")
         self.output_dir = Path(self.output_dir)
+        if self.run_dir is not None:
+            self.run_dir = Path(self.run_dir)
 
     def to_dict(self) -> dict[str, Any]:
         data = asdict(self)
         data["output_dir"] = str(self.output_dir)
+        data["run_dir"] = str(self.run_dir) if self.run_dir else None
         return data

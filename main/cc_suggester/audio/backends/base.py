@@ -13,6 +13,8 @@ class AudioBackend(ABC):
     """Interface implemented by sound event detection backends."""
 
     name: str
+    requires_audio_file: bool = False
+    requires_valid_media: bool = False
 
     @abstractmethod
     def detect(

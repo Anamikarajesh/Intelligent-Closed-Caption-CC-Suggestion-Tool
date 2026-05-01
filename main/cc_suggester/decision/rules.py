@@ -15,6 +15,9 @@ EVENT_IMPORTANCE_PRIOR: dict[str, float] = {
     "applause": 0.12,
     "chair_scrape": 0.04,
     "background_chatter": 0.02,
+    "impact_sound": 0.14,
+    "loud_sound": 0.10,
+    "sustained_sound": 0.04,
 }
 
 AMBIENT_PENALTY: dict[str, float] = {
@@ -24,6 +27,7 @@ AMBIENT_PENALTY: dict[str, float] = {
     "background_music": 0.24,
     "crowd_murmur": 0.28,
     "chair_scrape": 0.10,
+    "sustained_sound": 0.18,
 }
 
 HIGH_IMPACT_EVENTS = {
