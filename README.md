@@ -16,6 +16,21 @@ The project focuses on detecting moments where a non-speech sound meaningfully a
 
 This project does not generate full dialogue subtitles in the first version. It analyzes raw videos and produces non-speech closed caption suggestions only.
 
+## Implementation Status
+
+The first runnable Python scaffold has been started under [`main/`](main/). It includes the modular package, CLI, diagnostics, mock audio and vision backends, decision engine, multilingual caption labels, and SRT/JSON/CSV exports.
+
+Current scaffold commands:
+
+```bash
+cd main
+python -m cc_suggester doctor
+python -m cc_suggester analyze README.md --lang hi --device auto --out outputs
+python -m pytest tests
+```
+
+The mock backends are intentionally lightweight so the pipeline can be tested before large ML dependencies are added. The full implementation roadmap is maintained in [`docs/implementation-plan.md`](docs/implementation-plan.md).
+
 ## Problem Statement
 
 Accessibility editors currently add non-speech closed caption annotations by hand. This is time-consuming and requires judgment: not every sound should be captioned.

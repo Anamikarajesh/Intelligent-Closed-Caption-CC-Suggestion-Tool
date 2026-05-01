@@ -1,0 +1,74 @@
+flowchart TB
+    subgraph Inputs["Inputs"]
+        VIDEO["Raw Video File\nMP4 / MKV / MOV"]
+        CONFIG["Config\nlanguage, device, thresholds, backends"]
+    end
+
+    subgraph Clients["User Interfaces"]
+        CLI["CLI\nanalyze / doctor / export"]
+        WEB["Web UI\neditor review workspace"]
+        VLC["Future VLC Plugin"]
+    end
+
+    subgraph Core["Reusable Core Pipeline"]
+        PIPE["Pipeline Orchestrator"]
+        TYPES["Shared Data Models"]
+        ERRORS["Diagnostics + Friendly Errors"]
+    end
+
+    subgraph Audio["Goal 1: Sound Event Detection"]
+        EXTRACT["Audio Extraction\nffmpeg"]
+        DSP["DSP Candidate Signals\nRMS / STFT / Spectral Flux / Onsets"]
+        AUDIO_BACKEND["Audio Model Backend\nYAMNet / PANNs / AST / BEATs"]
+        EVENTS["Event Smoothing\nMerge / Filter / Normalize"]
+    end
+
+    subgraph Vision["Goal 2: Speaker / Scene Reaction Detection"]
+        FRAMES["Event-Aligned Frame Sampling"]
+        FLOW["OpenCV Optical Flow\nmotion spike detection"]
+        MEDIAPIPE["MediaPipe Face + Pose\nhead turn, posture, expression"]
+        REACTION["Reaction Confidence Score"]
+    end
+
+    subgraph Decision["Goal 3: CC Decision + Output"]
+        SCORER["Decision Engine\naudio + visual + rules"]
+        LABELS["Caption Label Mapping\nEnglish + Indian languages"]
+        REVIEW["Editor Review State\naccept / reject / edit"]
+    end
+
+    subgraph Outputs["Outputs"]
+        SRT["Final SRT"]
+        JSON["Full JSON Debug Report"]
+        CSV["CSV Review Report"]
+    end
+
+    VIDEO --> CLI
+    VIDEO --> WEB
+    CONFIG --> CLI
+    CONFIG --> WEB
+    VLC -. "future local API / CLI call" .-> PIPE
+
+    CLI --> PIPE
+    WEB --> PIPE
+    PIPE --> TYPES
+    PIPE --> ERRORS
+    PIPE --> EXTRACT
+
+    EXTRACT --> DSP
+    DSP --> AUDIO_BACKEND
+    AUDIO_BACKEND --> EVENTS
+
+    EVENTS --> FRAMES
+    FRAMES --> FLOW
+    FRAMES --> MEDIAPIPE
+    FLOW --> REACTION
+    MEDIAPIPE --> REACTION
+
+    EVENTS --> SCORER
+    REACTION --> SCORER
+    SCORER --> LABELS
+    LABELS --> REVIEW
+
+    REVIEW --> SRT
+    SCORER --> JSON
+    REVIEW --> CSV
