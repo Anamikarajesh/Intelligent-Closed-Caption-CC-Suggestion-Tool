@@ -1,0 +1,4 @@
+# CPU DSP backend uses only the Python standard library plus ffmpeg.
+# Future YAMNet backend dependencies:
+# tensorflow>=2.15
+# tensorflow-hub>=0.16

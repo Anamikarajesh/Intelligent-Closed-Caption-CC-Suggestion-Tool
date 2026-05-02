@@ -10,6 +10,7 @@ def test_format_srt_time():
 
 def test_caption_for_known_language():
     assert caption_for("horn_honk", "hi") == "[हॉर्न बजता है]"
+    assert caption_for("impact_sound", "ml") == "[പെട്ടെന്നുള്ള ശബ്ദം]"
 
 
 def test_write_srt_only_accepts_accepted(tmp_path):

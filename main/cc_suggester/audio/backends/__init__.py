@@ -3,6 +3,7 @@
 from cc_suggester.audio.backends.base import AudioBackend
 from cc_suggester.audio.backends.dsp import DspAudioBackend
 from cc_suggester.audio.backends.mock import MockAudioBackend
+from cc_suggester.audio.backends.unavailable import UnavailableAudioBackend
 from cc_suggester.audio.backends.yamnet import YamnetAudioBackend
 
 
@@ -16,7 +17,14 @@ def get_audio_backend(name: str) -> AudioBackend:
         return DspAudioBackend()
     if normalized == "yamnet":
         return YamnetAudioBackend()
+    if normalized == "panns":
+        return UnavailableAudioBackend("panns", "Install PyTorch PANNs dependencies and add checkpoint loading.")
+    if normalized == "ast":
+        return UnavailableAudioBackend("ast", "Install AST dependencies and add an AudioSet checkpoint.")
+    if normalized == "beats":
+        return UnavailableAudioBackend("beats", "Install BEATs dependencies and add model checkpoint loading.")
+    if normalized == "clap":
+        return UnavailableAudioBackend("clap", "Install CLAP dependencies for open-vocabulary matching.")
     raise ValueError(
-        f"Unknown audio backend '{name}'. Available: mock, dsp, yamnet. "
-        "Planned advanced backends: panns, ast, beats."
+        f"Unknown audio backend '{name}'. Available: mock, dsp, yamnet, panns, ast, beats, clap."
     )

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
+import json
 from pathlib import Path
 from typing import Any
 
@@ -48,3 +49,22 @@ class PipelineConfig:
         data["output_dir"] = str(self.output_dir)
         data["run_dir"] = str(self.run_dir) if self.run_dir else None
         return data
+
+
+def load_config(path: Path) -> PipelineConfig:
+    """Load a JSON config file."""
+
+    path = Path(path)
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    return PipelineConfig(**payload)
+
+
+def merge_config(base: PipelineConfig, **overrides: Any) -> PipelineConfig:
+    """Return a config with non-None overrides applied."""
+
+    data = base.to_dict()
+    data.pop("run_dir", None)
+    for key, value in overrides.items():
+        if value is not None:
+            data[key] = value
+    return PipelineConfig(**data)

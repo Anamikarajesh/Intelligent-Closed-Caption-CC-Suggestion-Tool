@@ -9,14 +9,21 @@ from pathlib import Path
 from typing import Sequence
 
 from cc_suggester import __version__
-from cc_suggester.core.config import SUPPORTED_DEVICES, SUPPORTED_LANGUAGES, PipelineConfig
+from cc_suggester.core.config import (
+    SUPPORTED_DEVICES,
+    SUPPORTED_LANGUAGES,
+    PipelineConfig,
+    load_config,
+    merge_config,
+)
 from cc_suggester.core.diagnostics import run_diagnostics
 from cc_suggester.core.errors import CCSuggesterError
 from cc_suggester.core.media import inspect_video
-from cc_suggester.core.pipeline import analyze_video, export_from_report
+from cc_suggester.core.pipeline import analyze_video, detect_audio_events, export_from_report
+from cc_suggester.translation.glossary import supported_event_ids
 
 
-COMMANDS = ("analyze", "inspect", "doctor", "export", "web")
+COMMANDS = ("analyze", "audio", "inspect", "doctor", "export", "labels", "web")
 
 
 class FriendlyParser(argparse.ArgumentParser):
@@ -60,14 +67,18 @@ def _build_parser() -> FriendlyParser:
 
     analyze = subparsers.add_parser("analyze", help="Run the full CC suggestion pipeline.")
     analyze.add_argument("input", type=Path, help="Input video path.")
-    analyze.add_argument("--lang", default="en", choices=SUPPORTED_LANGUAGES, help="Caption label language.")
-    analyze.add_argument("--device", default="auto", choices=SUPPORTED_DEVICES, help="Device mode.")
-    analyze.add_argument("--audio-backend", default="mock", help="Audio backend name.")
-    analyze.add_argument("--vision-backend", default="mock", help="Vision backend name.")
-    analyze.add_argument("--out", default=Path("outputs"), type=Path, help="Output root directory.")
-    analyze.add_argument("--decision-threshold", default=0.65, type=float, help="Accept threshold.")
-    analyze.add_argument("--review-threshold", default=0.50, type=float, help="Review threshold.")
+    _add_pipeline_args(analyze)
     analyze.set_defaults(handler=_handle_analyze)
+
+    audio = subparsers.add_parser("audio", help="Run only audio event detection.")
+    audio.add_argument("input", type=Path, help="Input video or WAV path.")
+    audio.add_argument("--config", type=Path, default=None, help="JSON config file.")
+    audio.add_argument("--device", default=None, choices=SUPPORTED_DEVICES, help="Device mode.")
+    audio.add_argument("--audio-backend", default=None, help="Audio backend name.")
+    audio.add_argument("--out", default=None, type=Path, help="Output root directory.")
+    audio.add_argument("--audio-threshold", default=None, type=float, help="Audio event threshold.")
+    audio.add_argument("--allow-demo-input", action="store_true", help="Allow non-video demo files.")
+    audio.set_defaults(handler=_handle_audio)
 
     inspect = subparsers.add_parser("inspect", help="Inspect video metadata.")
     inspect.add_argument("input", type=Path, help="Input video path.")
@@ -84,21 +95,16 @@ def _build_parser() -> FriendlyParser:
     export.add_argument("--out", type=Path, default=None, help="Output SRT path.")
     export.set_defaults(handler=_handle_export)
 
+    labels = subparsers.add_parser("labels", help="List supported languages and event label IDs.")
+    labels.set_defaults(handler=_handle_labels)
+
     web = subparsers.add_parser("web", help="Show how to launch the planned Web UI.")
     web.set_defaults(handler=_handle_web)
     return parser
 
 
 def _handle_analyze(args: argparse.Namespace) -> int:
-    config = PipelineConfig(
-        language=args.lang,
-        device=args.device,
-        audio_backend=args.audio_backend,
-        vision_backend=args.vision_backend,
-        output_dir=args.out,
-        decision_threshold=args.decision_threshold,
-        review_threshold=args.review_threshold,
-    )
+    config = _config_from_args(args)
     result = analyze_video(args.input, config)
     accepted = sum(1 for item in result.suggestions if item.accepted)
     review = sum(1 for item in result.suggestions if item.requires_review)
@@ -111,6 +117,28 @@ def _handle_analyze(args: argparse.Namespace) -> int:
     print(f"Events: {len(result.audio_events)} detected, {accepted} accepted, {review} review, {rejected} rejected")
     for name, path in result.files.items():
         print(f"{name}: {path}")
+    return 0
+
+
+def _handle_audio(args: argparse.Namespace) -> int:
+    base = load_config(args.config) if args.config else PipelineConfig()
+    config = merge_config(
+        base,
+        device=args.device,
+        audio_backend=args.audio_backend,
+        output_dir=args.out,
+        audio_threshold=args.audio_threshold,
+        allow_demo_input=args.allow_demo_input or None,
+    )
+    payload = detect_audio_events(args.input, config)
+    events = payload["audio_events"]
+    files = payload.get("files", {})
+    print("Audio detection complete.")
+    print(f"Input: {payload['input_path']}")
+    print(f"Events: {len(events)}")
+    if isinstance(files, dict):
+        for name, path in files.items():
+            print(f"{name}: {path}")
     return 0
 
 
@@ -155,13 +183,23 @@ def _handle_export(args: argparse.Namespace) -> int:
     return 0
 
 
+def _handle_labels(args: argparse.Namespace) -> int:
+    print("Supported languages:")
+    print("  " + ", ".join(SUPPORTED_LANGUAGES))
+    print("Supported event IDs:")
+    for event_id in supported_event_ids():
+        print(f"  {event_id}")
+    return 0
+
+
 def _handle_web(args: argparse.Namespace) -> int:
+    app_path = Path(__file__).resolve().parents[1] / "ui" / "streamlit_app.py"
     mockup_path = Path(__file__).resolve().parents[3] / "mockups" / "web-ui.html"
     print("The planned Web UI will use the same core pipeline modules as the CLI.")
-    print("Current interactive mockup:")
+    print("Run:")
+    print(f"  streamlit run {app_path}")
+    print("\nInteractive HTML mockup:")
     print(f"  {mockup_path}")
-    print("\nFuture command:")
-    print("  streamlit run cc_suggester/ui/streamlit_app.py")
     return 0
 
 
@@ -192,6 +230,35 @@ def _format_resolution(width: int | None, height: int | None) -> str:
     if width is None or height is None:
         return "unknown"
     return f"{width} x {height}"
+
+
+def _add_pipeline_args(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--config", type=Path, default=None, help="JSON config file.")
+    parser.add_argument("--lang", default=None, choices=SUPPORTED_LANGUAGES, help="Caption label language.")
+    parser.add_argument("--device", default=None, choices=SUPPORTED_DEVICES, help="Device mode.")
+    parser.add_argument("--audio-backend", default=None, help="Audio backend name.")
+    parser.add_argument("--vision-backend", default=None, help="Vision backend name.")
+    parser.add_argument("--out", default=None, type=Path, help="Output root directory.")
+    parser.add_argument("--audio-threshold", default=None, type=float, help="Audio event threshold.")
+    parser.add_argument("--decision-threshold", default=None, type=float, help="Accept threshold.")
+    parser.add_argument("--review-threshold", default=None, type=float, help="Review threshold.")
+    parser.add_argument("--allow-demo-input", action="store_true", help="Allow non-video demo files.")
+
+
+def _config_from_args(args: argparse.Namespace) -> PipelineConfig:
+    base = load_config(args.config) if args.config else PipelineConfig()
+    return merge_config(
+        base,
+        language=args.lang,
+        device=args.device,
+        audio_backend=args.audio_backend,
+        vision_backend=args.vision_backend,
+        output_dir=args.out,
+        audio_threshold=args.audio_threshold,
+        decision_threshold=args.decision_threshold,
+        review_threshold=args.review_threshold,
+        allow_demo_input=args.allow_demo_input or None,
+    )
 
 
 if __name__ == "__main__":

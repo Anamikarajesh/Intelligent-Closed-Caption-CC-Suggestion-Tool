@@ -9,18 +9,19 @@ This package generates meaningful non-speech closed caption suggestions from vid
 Implemented now:
 
 - `cc_suggester.core`: pipeline orchestration, config, shared data models, diagnostics, media inspection, friendly errors
-- `cc_suggester.audio`: audio backend interface, deterministic mock backend, event smoothing, ffmpeg extraction helper
-- `cc_suggester.vision`: vision backend interface, deterministic mock backend, frame-sampling and reaction helper placeholders
+- `cc_suggester.audio`: audio backend interface, deterministic mock backend, DSP backend, event smoothing, ffmpeg extraction helper, advanced backend placeholders
+- `cc_suggester.vision`: vision backend interface, deterministic mock backend, OpenCV backend, MediaPipe placeholder, frame-sampling and reaction helpers
 - `cc_suggester.decision`: scoring rules, ambient penalties, multilingual caption glossary
 - `cc_suggester.output`: SRT, JSON, and CSV writers
-- `cc_suggester.cli`: `analyze`, `inspect`, `doctor`, `export`, and `web` commands
-- `tests`: basic tests for SRT output and label lookup
+- `cc_suggester.cli`: `analyze`, `audio`, `inspect`, `doctor`, `export`, `labels`, and `web` commands
+- `cc_suggester.ui`: Streamlit editor review client
+- `tests`: tests for SRT output, label lookup, config/CLI behavior, and DSP detection
 
 Not implemented yet:
 
-- Real YAMNet/PANNs/AST/BEATs audio backend
-- Real OpenCV/MediaPipe visual reaction backend
-- Streamlit Web UI connected to the pipeline
+- Real YAMNet/PANNs/AST/BEATs semantic audio backend
+- Full MediaPipe face/pose visual reaction backend
+- Advanced Streamlit timeline editing and export of manually edited review state
 - Real evaluation dataset and editor feedback loop
 - Docker and VLC integration
 
@@ -49,6 +50,12 @@ For the future Web UI:
 pip install -r requirements-ui.txt
 ```
 
+For the OpenCV vision backend:
+
+```bash
+pip install -r requirements-vision.txt
+```
+
 ## CLI Usage
 
 Run diagnostics:
@@ -69,6 +76,18 @@ Run the current mock pipeline:
 python -m cc_suggester analyze path/to/video.mp4 --lang hi --device auto --out outputs/
 ```
 
+Run the CPU DSP audio baseline:
+
+```bash
+python -m cc_suggester analyze path/to/video.mp4 --audio-backend dsp --vision-backend mock --lang en
+```
+
+Run only audio detection:
+
+```bash
+python -m cc_suggester audio path/to/video.mp4 --audio-backend dsp --out outputs/
+```
+
 Export another language from an existing JSON report:
 
 ```bash
@@ -79,6 +98,12 @@ Show Web UI guidance:
 
 ```bash
 python -m cc_suggester web
+```
+
+List supported labels:
+
+```bash
+python -m cc_suggester labels
 ```
 
 The installed package will expose the same CLI as `ccs`:
@@ -119,7 +144,7 @@ Vision backends implement:
 analyze(video_path, metadata, audio_events, config) -> list[ReactionResult]
 ```
 
-The first real audio backend should be YAMNet. The first real visual backend should be OpenCV + MediaPipe. The mock backends should remain available for tests and demos.
+The DSP audio backend and OpenCV vision backend are available as local baselines. The first semantic audio backend should be YAMNet. The first full visual reaction backend should be MediaPipe face/pose. Mock backends should remain available for tests and demos.
 
 ## Verification
 
@@ -142,17 +167,18 @@ python -m cc_suggester doctor
 python -m cc_suggester analize
 python -m cc_suggester analyze README.md --lang hi --device auto --out outputs
 python -m cc_suggester export outputs/README/results.json --format srt --lang ml --out outputs/README/captions.ml.srt
+python -m cc_suggester labels
 ```
 
 The `analize` command is intentionally useful as a smoke check for friendly typo suggestions.
 
 ## Immediate Next Sprint
 
-1. Add strict real-video validation.
-2. Extract mono 16 kHz WAV audio into each run directory.
-3. Add `requirements-audio.txt`.
-4. Implement `audio/backends/yamnet.py`.
-5. Add decision-rule and CLI tests.
-6. Add a small synthetic/sample video fixture for integration tests.
+1. Implement `audio/backends/yamnet.py` with an offline model path or documented TensorFlow Hub setup.
+2. Implement real MediaPipe face/pose reaction scoring.
+3. Add `ccs vision` for visual scoring from existing audio event JSON.
+4. Add decision-rule and backend dependency tests.
+5. Add a small synthetic/sample video fixture for integration tests.
+6. Harden the Streamlit editor so manually accepted/rejected/edited captions drive exported SRT files.
 
-After that, implement the MediaPipe visual backend and connect the Streamlit Web UI to `core/pipeline.py`.
+After that, add evaluation scripts and package the CPU pipeline with Docker.

@@ -78,6 +78,55 @@ def analyze_video(video_path: Path, config: PipelineConfig) -> PipelineResult:
     return result
 
 
+def detect_audio_events(video_path: Path, config: PipelineConfig) -> dict[str, object]:
+    """Run only the audio detection stage and write an audio JSON report."""
+
+    video_path = Path(video_path)
+    if not video_path.exists():
+        raise InputNotFoundError(
+            message=f"Input file was not found: {video_path}",
+            code="input_not_found",
+            suggestions=["Check the path and run ccs inspect /path/to/video.mp4."],
+        )
+
+    metadata = inspect_video(video_path)
+    diagnostics = run_diagnostics(config)
+    run_dir = _run_dir(config.output_dir, video_path)
+    config.run_dir = run_dir
+
+    try:
+        audio_backend = get_audio_backend(config.audio_backend)
+    except ValueError as exc:
+        raise BackendUnavailableError(
+            message=str(exc),
+            code="backend_unavailable",
+            suggestions=["Use --audio-backend mock or --audio-backend dsp."],
+        ) from exc
+
+    if audio_backend.requires_valid_media:
+        is_audio_only_input = video_path.suffix.lower() in AUDIO_EXTENSIONS
+        validate_media(
+            metadata,
+            require_video=not is_audio_only_input,
+            require_audio=audio_backend.requires_audio_file,
+            allow_probe_failure=config.allow_demo_input or is_audio_only_input,
+        )
+
+    events = smooth_events(audio_backend.detect(video_path, metadata, config), config)
+    payload: dict[str, object] = {
+        "input_path": str(video_path),
+        "output_dir": str(run_dir),
+        "metadata": metadata.to_dict(),
+        "diagnostics": diagnostics.to_dict(),
+        "audio_events": [event.to_dict() for event in events],
+        "artifacts": {name: str(path) for name, path in _collect_artifacts(run_dir).items()},
+    }
+    run_dir.mkdir(parents=True, exist_ok=True)
+    report_path = write_json_report(payload, run_dir / "audio_events.json")
+    payload["files"] = {"audio_json": str(report_path)}
+    return payload
+
+
 def export_from_report(report_path: Path, output_path: Path, language: str) -> Path:
     """Export SRT from a JSON report produced by the pipeline."""
 

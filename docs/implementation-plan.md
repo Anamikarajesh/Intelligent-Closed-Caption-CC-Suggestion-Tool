@@ -17,16 +17,23 @@ Completed:
 - Environment diagnostics with CPU/GPU reporting
 - Friendly CLI errors for wrong commands, missing input files, unavailable CUDA, and unavailable backends
 - Mock audio backend for deterministic non-speech event candidates
+- DSP audio backend for offline CPU candidate detection from WAV/extracted audio
+- Registered placeholder backends with actionable errors for YAMNet, PANNs, AST, BEATs, and CLAP
 - Mock visual backend for deterministic reaction scores
+- OpenCV visual backend for frame-difference scene reaction scoring
+- Registered MediaPipe placeholder with actionable setup guidance
 - Event smoothing
 - Decision engine with event importance priors and ambient penalties
 - Multilingual caption label glossary for English, Hindi, Tamil, Telugu, Bengali, Marathi, and Malayalam
 - SRT, JSON, CSV, diagnostics, and config exports
-- Basic tests for SRT formatting, label lookup, and accepted-only SRT export
+- Streamlit Web UI client that calls the same core pipeline
+- CLI commands for full analysis, audio-only detection, metadata inspection, diagnostics, export, label listing, and Web UI launch guidance
+- JSON config loading and CLI override merging
+- Basic tests for SRT formatting, label lookup, config merging, CLI behavior, and DSP detection
 - Interactive HTML Web UI mockup
 - Architecture diagrams and CLI examples
 
-The current scaffold is intentionally model-light. It proves the architecture and output contracts before heavy ML dependencies are introduced.
+The current implementation is still intentionally model-light. It includes a real DSP baseline and OpenCV vision path, but heavyweight pretrained models still need their optional dependencies and model-loading code.
 
 ## Target Final Outcome
 
@@ -50,14 +57,16 @@ The final project should:
 
 Goal: make video ingestion robust enough for real sample files.
 
+Status: partially implemented.
+
 Tasks:
 
-- Add stricter video validation in `core/media.py`.
-- Require valid video input for full analysis unless `--allow-demo-input` is explicitly passed.
-- Use `ffprobe` metadata for duration, FPS, resolution, codecs, and audio stream checks.
-- Use `audio/extractor.py` to extract mono 16 kHz WAV files into the run directory.
-- Add clear errors for missing audio streams, unsupported files, and ffmpeg failures.
-- Save extracted audio path in debug output.
+- Add stricter video validation in `core/media.py`. Done.
+- Require valid video input for real backends unless `--allow-demo-input` is explicitly passed. Done.
+- Use `ffprobe` metadata for duration, FPS, resolution, codecs, and audio stream checks. Done when ffprobe is available.
+- Use `audio/extractor.py` to extract mono 16 kHz WAV files into the run directory. Done for the DSP backend when input is a video.
+- Add clear errors for missing audio streams, unsupported files, and ffmpeg failures. Done.
+- Save extracted audio path in debug output. Done for DSP events/artifacts.
 - Add small test fixtures or generated synthetic media for integration tests.
 
 Acceptance checks:
@@ -79,10 +88,13 @@ python -m pytest tests
 
 Goal: replace the mock audio detector with a real sound event detection backend.
 
-Recommended first backend: YAMNet.
+Recommended first semantic backend: YAMNet.
+
+Status: DSP baseline implemented; YAMNet/PANNs/AST/BEATs remain future optional backends.
 
 Tasks:
 
+- Add CPU DSP candidate detection backend. Done.
 - Add optional audio dependencies in `requirements-audio.txt`.
 - Implement `audio/backends/yamnet.py` behind the existing `AudioBackend` interface.
 - Convert video audio to the sample rate expected by the backend.
@@ -122,12 +134,14 @@ Goal: replace the mock visual backend with a real event-aligned reaction analysi
 
 Recommended first backend: OpenCV + MediaPipe.
 
+Status: OpenCV scene-motion baseline implemented; MediaPipe face/pose scoring remains future work.
+
 Tasks:
 
 - Add optional vision dependencies in `requirements-vision.txt`.
 - Implement frame extraction in `vision/frame_sampler.py`.
-- Sample frames before, during, and after each detected audio event.
-- Implement OpenCV optical-flow motion spike features.
+- Sample frames before, during, and after each detected audio event. Done in OpenCV backend.
+- Implement OpenCV optical-flow motion spike features. Partially done with frame-difference motion scoring.
 - Implement MediaPipe face and pose analysis.
 - Estimate reaction signals:
   - head turn
@@ -192,19 +206,21 @@ Goal: build a real Web UI that uses the same backend modules as the CLI.
 
 Recommended first implementation: Streamlit.
 
+Status: first Streamlit client implemented; advanced timeline editing is still future work.
+
 Tasks:
 
-- Add `cc_suggester/ui/streamlit_app.py`.
-- Add video upload or local video selection.
-- Add controls for language, device, audio backend, vision backend, and thresholds.
-- Add Start Caption button.
-- Display generated video preview.
+- Add `cc_suggester/ui/streamlit_app.py`. Done.
+- Add video upload or local video selection. Upload done.
+- Add controls for language, device, audio backend, vision backend, and thresholds. Done.
+- Add Start Caption button. Done.
+- Display generated video preview. Done.
 - Show event timeline markers.
-- Show review panel with editable caption text.
-- Add accept/reject/edit state.
-- Add export buttons for SRT, JSON, and CSV.
-- Add error popups and diagnostics panel.
-- Reuse `core/pipeline.py`; do not duplicate logic in UI.
+- Show review panel with editable caption text. Done.
+- Add accept/reject/edit state. Basic state done in UI; exporting edited state still needs hardening.
+- Add export buttons for SRT, JSON, and CSV. Done for generated files.
+- Add error popups and diagnostics panel. Basic error display done.
+- Reuse `core/pipeline.py`; do not duplicate logic in UI. Done.
 
 Acceptance checks:
 
@@ -223,16 +239,18 @@ python -m pytest tests
 
 Goal: make the CLI reliable for contributors, batch processing, and debugging.
 
+Status: partially implemented.
+
 Tasks:
 
-- Add `ccs audio` for audio-only detection.
+- Add `ccs audio` for audio-only detection. Done.
 - Add `ccs vision` for visual scoring from existing audio events.
-- Add `ccs labels` to list supported event labels and languages.
-- Add config file loading.
+- Add `ccs labels` to list supported event labels and languages. Done.
+- Add config file loading. Done for JSON config.
 - Add shell completion if Typer is adopted later.
 - Improve command suggestions and examples.
 - Add structured exit codes.
-- Add more tests around CLI errors and outputs.
+- Add more tests around CLI errors and outputs. Partially done.
 
 Acceptance checks:
 
@@ -363,11 +381,11 @@ These should remain separate from the core pipeline so the project stays maintai
 
 The next implementation sprint should be:
 
-1. Add stricter video validation and extracted audio artifact handling.
-2. Add `requirements-audio.txt`.
-3. Implement the first real YAMNet backend.
+1. Implement the first semantic YAMNet backend using an offline model path or documented dependency setup.
+2. Implement MediaPipe face/pose reaction scoring.
+3. Add `ccs vision` for visual scoring from existing audio event JSON.
 4. Add tests for backend registry errors and decision rules.
-5. Add CLI tests for `doctor`, wrong command suggestions, and missing input.
+5. Add CLI tests for `doctor`, missing input, and backend dependency failures.
 6. Create a small synthetic or sample video fixture for integration testing.
 
 This sequence keeps risk low because the existing mock pipeline continues to work while real media and model backends are added incrementally.

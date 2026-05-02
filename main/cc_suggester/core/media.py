@@ -64,7 +64,10 @@ def inspect_video(path: Path) -> VideoMetadata:
             has_audio = True
             metadata.audio_codec = stream.get("codec_name")
             sample_rate = stream.get("sample_rate")
-            metadata.audio_sample_rate = int(sample_rate) if sample_rate else None
+            try:
+                metadata.audio_sample_rate = int(sample_rate) if sample_rate else None
+            except (TypeError, ValueError):
+                metadata.audio_sample_rate = None
             metadata.audio_channels = stream.get("channels")
         if stream.get("codec_type") == "video":
             has_video = True
