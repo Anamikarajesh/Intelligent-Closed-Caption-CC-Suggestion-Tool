@@ -21,13 +21,13 @@ Completed:
 - Registered placeholder backends with actionable errors for YAMNet, PANNs, AST, BEATs, and CLAP
 - Mock visual backend for deterministic reaction scores
 - OpenCV visual backend for frame-difference scene reaction scoring
-- Registered MediaPipe placeholder with actionable setup guidance
+- Optional MediaPipe pose backend with actionable dependency handling
 - Event smoothing
 - Decision engine with event importance priors and ambient penalties
 - Multilingual caption label glossary for English, Hindi, Tamil, Telugu, Bengali, Marathi, and Malayalam
 - SRT, JSON, CSV, diagnostics, and config exports
 - Streamlit Web UI client that calls the same core pipeline
-- CLI commands for full analysis, audio-only detection, metadata inspection, diagnostics, export, label listing, and Web UI launch guidance
+- CLI commands for full analysis, audio-only detection, vision-only reaction scoring, metadata inspection, diagnostics, export, label listing, and Web UI launch guidance
 - JSON config loading and CLI override merging
 - Basic tests for SRT formatting, label lookup, config merging, CLI behavior, and DSP detection
 - Interactive HTML Web UI mockup
@@ -134,7 +134,7 @@ Goal: replace the mock visual backend with a real event-aligned reaction analysi
 
 Recommended first backend: OpenCV + MediaPipe.
 
-Status: OpenCV scene-motion baseline implemented; MediaPipe face/pose scoring remains future work.
+Status: OpenCV scene-motion baseline implemented; optional MediaPipe pose scoring implemented and requires `requirements-vision.txt`.
 
 Tasks:
 
@@ -142,7 +142,7 @@ Tasks:
 - Implement frame extraction in `vision/frame_sampler.py`.
 - Sample frames before, during, and after each detected audio event. Done in OpenCV backend.
 - Implement OpenCV optical-flow motion spike features. Partially done with frame-difference motion scoring.
-- Implement MediaPipe face and pose analysis.
+- Implement MediaPipe face and pose analysis. Pose scoring implemented; face-landmark expression scoring remains future work.
 - Estimate reaction signals:
   - head turn
   - body/posture shift
@@ -206,7 +206,7 @@ Goal: build a real Web UI that uses the same backend modules as the CLI.
 
 Recommended first implementation: Streamlit.
 
-Status: first Streamlit client implemented; advanced timeline editing is still future work.
+Status: first Streamlit client implemented; reviewed SRT/CSV/session downloads are implemented; advanced timeline editing is still future work.
 
 Tasks:
 
@@ -217,8 +217,9 @@ Tasks:
 - Display generated video preview. Done.
 - Show event timeline markers.
 - Show review panel with editable caption text. Done.
-- Add accept/reject/edit state. Basic state done in UI; exporting edited state still needs hardening.
-- Add export buttons for SRT, JSON, and CSV. Done for generated files.
+- Add accept/reject/edit state. Done.
+- Add export buttons for SRT, CSV, and JSON session data from reviewed editor state. Done.
+- Keep raw generated JSON/SRT/CSV available for debugging. Done.
 - Add error popups and diagnostics panel. Basic error display done.
 - Reuse `core/pipeline.py`; do not duplicate logic in UI. Done.
 
@@ -244,7 +245,7 @@ Status: partially implemented.
 Tasks:
 
 - Add `ccs audio` for audio-only detection. Done.
-- Add `ccs vision` for visual scoring from existing audio events.
+- Add `ccs vision` for visual scoring from existing audio events. Done.
 - Add `ccs labels` to list supported event labels and languages. Done.
 - Add config file loading. Done for JSON config.
 - Add shell completion if Typer is adopted later.
@@ -382,8 +383,8 @@ These should remain separate from the core pipeline so the project stays maintai
 The next implementation sprint should be:
 
 1. Run YAMNet against a real cached/local TensorFlow Hub model and tune label mapping thresholds.
-2. Implement MediaPipe face/pose reaction scoring.
-3. Add `ccs vision` for visual scoring from existing audio event JSON.
+2. Test MediaPipe in an environment with `requirements-vision.txt` installed and tune pose thresholds.
+3. Add face-landmark/expression scoring to the MediaPipe backend.
 4. Add tests for backend registry errors and decision rules.
 5. Add CLI tests for `doctor`, missing input, and backend dependency failures.
 6. Harden the Streamlit review/export workflow.

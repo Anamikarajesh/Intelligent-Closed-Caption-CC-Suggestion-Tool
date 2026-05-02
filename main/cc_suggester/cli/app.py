@@ -19,11 +19,11 @@ from cc_suggester.core.config import (
 from cc_suggester.core.diagnostics import run_diagnostics
 from cc_suggester.core.errors import CCSuggesterError
 from cc_suggester.core.media import inspect_video
-from cc_suggester.core.pipeline import analyze_video, detect_audio_events, export_from_report
+from cc_suggester.core.pipeline import analyze_video, detect_audio_events, export_from_report, score_visual_reactions
 from cc_suggester.translation.glossary import supported_event_ids
 
 
-COMMANDS = ("analyze", "audio", "inspect", "doctor", "export", "labels", "web")
+COMMANDS = ("analyze", "audio", "vision", "inspect", "doctor", "export", "labels", "web")
 
 
 class FriendlyParser(argparse.ArgumentParser):
@@ -83,6 +83,16 @@ def _build_parser() -> FriendlyParser:
     audio.add_argument("--yamnet-top-k", default=None, type=int, help="Top YAMNet classes to inspect per frame.")
     audio.add_argument("--allow-demo-input", action="store_true", help="Allow non-video demo files.")
     audio.set_defaults(handler=_handle_audio)
+
+    vision = subparsers.add_parser("vision", help="Run visual reaction scoring from audio event JSON.")
+    vision.add_argument("input", type=Path, help="Input video path.")
+    vision.add_argument("audio_report", type=Path, help="audio_events.json or results.json path.")
+    vision.add_argument("--config", type=Path, default=None, help="JSON config file.")
+    vision.add_argument("--device", default=None, choices=SUPPORTED_DEVICES, help="Device mode.")
+    vision.add_argument("--vision-backend", default=None, help="Vision backend name.")
+    vision.add_argument("--out", default=None, type=Path, help="Output root directory.")
+    vision.add_argument("--allow-demo-input", action="store_true", help="Allow probe fallback for demo media.")
+    vision.set_defaults(handler=_handle_vision)
 
     inspect = subparsers.add_parser("inspect", help="Inspect video metadata.")
     inspect.add_argument("input", type=Path, help="Input video path.")
@@ -144,6 +154,28 @@ def _handle_audio(args: argparse.Namespace) -> int:
     print("Audio detection complete.")
     print(f"Input: {payload['input_path']}")
     print(f"Events: {len(events)}")
+    if isinstance(files, dict):
+        for name, path in files.items():
+            print(f"{name}: {path}")
+    return 0
+
+
+def _handle_vision(args: argparse.Namespace) -> int:
+    base = load_config(args.config) if args.config else PipelineConfig()
+    config = merge_config(
+        base,
+        device=args.device,
+        vision_backend=args.vision_backend,
+        output_dir=args.out,
+        allow_demo_input=args.allow_demo_input or None,
+    )
+    payload = score_visual_reactions(args.input, args.audio_report, config)
+    reactions = payload["reactions"]
+    files = payload.get("files", {})
+    print("Visual reaction scoring complete.")
+    print(f"Input: {payload['input_path']}")
+    print(f"Audio report: {payload['audio_report_path']}")
+    print(f"Reactions: {len(reactions)}")
     if isinstance(files, dict):
         for name, path in files.items():
             print(f"{name}: {path}")

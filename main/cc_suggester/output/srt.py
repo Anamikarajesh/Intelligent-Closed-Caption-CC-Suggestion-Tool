@@ -7,11 +7,10 @@ from pathlib import Path
 from cc_suggester.core.types import CaptionSuggestion
 
 
-def write_srt(suggestions: list[CaptionSuggestion], output_path: Path) -> Path:
-    """Write accepted caption suggestions to an SRT file."""
+def render_srt(suggestions: list[CaptionSuggestion]) -> str:
+    """Render accepted caption suggestions as SRT text."""
 
     accepted = [item for item in suggestions if item.accepted]
-    output_path.parent.mkdir(parents=True, exist_ok=True)
     lines: list[str] = []
     for index, suggestion in enumerate(accepted, start=1):
         lines.extend(
@@ -22,7 +21,14 @@ def write_srt(suggestions: list[CaptionSuggestion], output_path: Path) -> Path:
                 "",
             ]
         )
-    output_path.write_text("\n".join(lines), encoding="utf-8")
+    return "\n".join(lines)
+
+
+def write_srt(suggestions: list[CaptionSuggestion], output_path: Path) -> Path:
+    """Write accepted caption suggestions to an SRT file."""
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(render_srt(suggestions), encoding="utf-8")
     return output_path
 
 

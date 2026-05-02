@@ -30,7 +30,7 @@ python -m cc_suggester labels
 python -m pytest tests
 ```
 
-The mock backends remain for deterministic tests, while `--audio-backend dsp` and `--vision-backend opencv` provide local real-processing baselines. YAMNet is now wired as an optional TensorFlow Hub backend, while PANNs, AST, BEATs, and MediaPipe face/pose scoring remain documented next steps in [`docs/implementation-plan.md`](docs/implementation-plan.md).
+The mock backends remain for deterministic tests, while `--audio-backend dsp` and `--vision-backend opencv` provide local real-processing baselines. YAMNet is wired as an optional TensorFlow Hub backend, and MediaPipe is wired as an optional pose-based reaction backend. PANNs, AST, BEATs, and richer MediaPipe face/expression scoring remain documented next steps in [`docs/implementation-plan.md`](docs/implementation-plan.md).
 
 For environments without system ffmpeg, the sample generator can create an OpenCV video plus sidecar WAV file so the DSP/OpenCV path can still be tested locally.
 

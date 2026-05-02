@@ -10,18 +10,18 @@ Implemented now:
 
 - `cc_suggester.core`: pipeline orchestration, config, shared data models, diagnostics, media inspection, friendly errors
 - `cc_suggester.audio`: audio backend interface, deterministic mock backend, DSP backend, event smoothing, ffmpeg extraction helper, advanced backend placeholders
-- `cc_suggester.vision`: vision backend interface, deterministic mock backend, OpenCV backend, MediaPipe placeholder, frame-sampling and reaction helpers
+- `cc_suggester.vision`: vision backend interface, deterministic mock backend, OpenCV backend, optional MediaPipe pose backend, frame-sampling and reaction helpers
 - `cc_suggester.decision`: scoring rules, ambient penalties, multilingual caption glossary
-- `cc_suggester.output`: SRT, JSON, and CSV writers
+- `cc_suggester.output`: SRT, JSON, CSV, and reviewed export helpers
 - `cc_suggester.cli`: `analyze`, `audio`, `inspect`, `doctor`, `export`, `labels`, and `web` commands
-- `cc_suggester.ui`: Streamlit editor review client
-- `tests`: tests for SRT output, label lookup, config/CLI behavior, and DSP detection
+- `cc_suggester.ui`: Streamlit editor review client with edited SRT/CSV/session downloads
+- `tests`: tests for SRT output, label lookup, config/CLI behavior, DSP detection, and reviewed exports
 
 Not implemented yet:
 
 - Real YAMNet/PANNs/AST/BEATs semantic audio backend
-- Full MediaPipe face/pose visual reaction backend
-- Advanced Streamlit timeline editing and export of manually edited review state
+- MediaPipe face-landmark/expression reaction scoring
+- Advanced Streamlit timeline editing and persisted review sessions
 - Real evaluation dataset and editor feedback loop
 - Docker and VLC integration
 
@@ -44,7 +44,7 @@ For development tests:
 pip install -r requirements-dev.txt
 ```
 
-For the future Web UI:
+For the Web UI:
 
 ```bash
 pip install -r requirements-ui.txt
@@ -55,6 +55,8 @@ For the OpenCV vision backend:
 ```bash
 pip install -r requirements-vision.txt
 ```
+
+`requirements-vision.txt` also includes MediaPipe for the optional pose-based reaction backend.
 
 ## CLI Usage
 
@@ -86,6 +88,12 @@ Run only audio detection:
 
 ```bash
 python -m cc_suggester audio path/to/video.mp4 --audio-backend dsp --out outputs/
+```
+
+Run only visual reaction scoring from an audio report:
+
+```bash
+python -m cc_suggester vision path/to/video.mp4 outputs/video/audio_events.json --vision-backend opencv
 ```
 
 Run the optional YAMNet backend after installing audio dependencies:
@@ -143,6 +151,8 @@ outputs/
 
 `captions.<lang>.srt` contains only accepted captions. `results.json` and `events.csv` include accepted, rejected, and review-needed candidates for debugging and editor review.
 
+The Streamlit UI can also export reviewed SRT, CSV, and JSON session content from the current editor choices. This means edited caption text and manual accept/reject/review decisions drive the downloaded files.
+
 ## Backend Strategy
 
 Backends are intentionally pluggable.
@@ -159,7 +169,7 @@ Vision backends implement:
 analyze(video_path, metadata, audio_events, config) -> list[ReactionResult]
 ```
 
-The DSP audio backend and OpenCV vision backend are available as local baselines. YAMNet is implemented as an optional TensorFlow Hub backend and requires `requirements-audio.txt`. The first full visual reaction backend should be MediaPipe face/pose. Mock backends should remain available for tests and demos.
+The DSP audio backend and OpenCV vision backend are available as local baselines. YAMNet is implemented as an optional TensorFlow Hub backend and requires `requirements-audio.txt`. MediaPipe is implemented as an optional pose-based reaction backend and requires `requirements-vision.txt`. Mock backends should remain available for tests and demos.
 
 ## Verification
 
@@ -183,6 +193,7 @@ python -m cc_suggester analize
 python -m cc_suggester analyze README.md --lang hi --device auto --out outputs
 python -m cc_suggester export outputs/README/results.json --format srt --lang ml --out outputs/README/captions.ml.srt
 python -m cc_suggester labels
+python -m cc_suggester vision tests/fixtures/sample_classroom.mp4 outputs/sample_classroom/audio_events.json --vision-backend opencv
 ```
 
 The `analize` command is intentionally useful as a smoke check for friendly typo suggestions.
@@ -215,10 +226,10 @@ python -m cc_suggester analyze tests/fixtures/sample_classroom.mp4 \
 ## Immediate Next Sprint
 
 1. Test YAMNet with an installed TensorFlow/TensorFlow Hub environment and a cached/local model.
-2. Implement real MediaPipe face/pose reaction scoring.
-3. Add `ccs vision` for visual scoring from existing audio event JSON.
+2. Test MediaPipe in an environment with `requirements-vision.txt` installed and tune pose thresholds.
+3. Add face-landmark/expression scoring to the MediaPipe backend.
 4. Add more decision-rule and backend dependency tests.
-5. Harden the Streamlit editor so manually accepted/rejected/edited captions drive exported SRT files.
+5. Add timeline markers and persisted review sessions to the Streamlit editor.
 6. Add evaluation scripts for editor feedback.
 
 After that, add evaluation scripts and package the CPU pipeline with Docker.

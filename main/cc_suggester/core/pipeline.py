@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 from cc_suggester.audio.backends import get_audio_backend
@@ -10,7 +11,7 @@ from cc_suggester.core.config import PipelineConfig
 from cc_suggester.core.diagnostics import run_diagnostics
 from cc_suggester.core.errors import BackendUnavailableError, InputNotFoundError
 from cc_suggester.core.media import AUDIO_EXTENSIONS, inspect_video, validate_media
-from cc_suggester.core.types import PipelineResult
+from cc_suggester.core.types import AudioEventCandidate, PipelineResult
 from cc_suggester.decision.scorer import decide_captions
 from cc_suggester.output.csv_report import write_csv_report
 from cc_suggester.output.json_report import write_json_report
@@ -131,6 +132,70 @@ def detect_audio_events(video_path: Path, config: PipelineConfig) -> dict[str, o
     return payload
 
 
+def score_visual_reactions(
+    video_path: Path,
+    audio_report_path: Path,
+    config: PipelineConfig,
+) -> dict[str, object]:
+    """Run only visual reaction scoring from an existing audio event report."""
+
+    video_path = Path(video_path)
+    audio_report_path = Path(audio_report_path)
+    if not video_path.exists():
+        raise InputNotFoundError(
+            message=f"Input file was not found: {video_path}",
+            code="input_not_found",
+            suggestions=["Check the path and run ccs inspect /path/to/video.mp4."],
+        )
+    if not audio_report_path.exists():
+        raise InputNotFoundError(
+            message=f"Audio event report was not found: {audio_report_path}",
+            code="audio_report_not_found",
+            suggestions=[
+                "Run ccs audio first to generate audio_events.json.",
+                "Pass a valid path to a pipeline results.json file or audio_events.json file.",
+            ],
+        )
+
+    metadata = inspect_video(video_path)
+    diagnostics = run_diagnostics(config)
+    run_dir = _run_dir(config.output_dir, video_path)
+    config.run_dir = run_dir
+
+    try:
+        vision_backend = get_vision_backend(config.vision_backend)
+    except ValueError as exc:
+        raise BackendUnavailableError(
+            message=str(exc),
+            code="backend_unavailable",
+            suggestions=["Use --vision-backend mock or --vision-backend opencv."],
+        ) from exc
+
+    if vision_backend.requires_valid_media:
+        validate_media(
+            metadata,
+            require_video=True,
+            require_audio=False,
+            allow_probe_failure=config.allow_demo_input,
+        )
+
+    audio_events = _load_audio_events(audio_report_path)
+    reactions = vision_backend.analyze(video_path, metadata, audio_events, config)
+    payload: dict[str, object] = {
+        "input_path": str(video_path),
+        "audio_report_path": str(audio_report_path),
+        "output_dir": str(run_dir),
+        "metadata": metadata.to_dict(),
+        "diagnostics": diagnostics.to_dict(),
+        "audio_events": [event.to_dict() for event in audio_events],
+        "reactions": [reaction.to_dict() for reaction in reactions],
+    }
+    run_dir.mkdir(parents=True, exist_ok=True)
+    report_path = write_json_report(payload, run_dir / "vision_reactions.json")
+    payload["files"] = {"vision_json": str(report_path)}
+    return payload
+
+
 def export_from_report(report_path: Path, output_path: Path, language: str) -> Path:
     """Export SRT from a JSON report produced by the pipeline."""
 
@@ -159,6 +224,26 @@ def export_from_report(report_path: Path, output_path: Path, language: str) -> P
             )
         )
     return write_srt(suggestions, output_path)
+
+
+def _load_audio_events(report_path: Path) -> list[AudioEventCandidate]:
+    payload = json.loads(Path(report_path).read_text(encoding="utf-8"))
+    raw_events = payload.get("audio_events", [])
+    events: list[AudioEventCandidate] = []
+    for item in raw_events:
+        events.append(
+            AudioEventCandidate(
+                event_id=str(item["event_id"]),
+                label=str(item.get("label") or item["event_id"]),
+                start_time=float(item["start_time"]),
+                end_time=float(item["end_time"]),
+                audio_confidence=float(item["audio_confidence"]),
+                audio_backend=str(item.get("audio_backend") or "unknown"),
+                raw_class_name=item.get("raw_class_name"),
+                debug_info=item.get("debug_info", {}),
+            )
+        )
+    return events
 
 
 def _write_outputs(result: PipelineResult, config: PipelineConfig) -> dict[str, Path]:

@@ -1,5 +1,6 @@
 from cc_suggester.core.types import CaptionSuggestion
 from cc_suggester.decision.labels import caption_for
+from cc_suggester.output.csv_report import render_csv_report
 from cc_suggester.output.srt import format_srt_time, write_srt
 
 
@@ -46,3 +47,27 @@ def test_write_srt_only_accepts_accepted(tmp_path):
     text = output.read_text(encoding="utf-8")
     assert "[horn honks]" in text
     assert "[background chatter]" not in text
+
+
+def test_render_csv_report_includes_review_flags():
+    suggestions = [
+        CaptionSuggestion(
+            event_id="school_bell",
+            start_time=10.0,
+            end_time=11.0,
+            audio_confidence=0.7,
+            reaction_confidence=0.4,
+            decision_score=0.6,
+            accepted=False,
+            requires_review=True,
+            reason="borderline",
+            caption_text="[school bell rings]",
+            language="en",
+        )
+    ]
+
+    text = render_csv_report(suggestions)
+
+    assert "school_bell" in text
+    assert "requires_review" in text
+    assert "True" in text
