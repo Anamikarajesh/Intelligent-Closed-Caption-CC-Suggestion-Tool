@@ -18,7 +18,7 @@ This project does not generate full dialogue subtitles in the first version. It 
 
 ## Implementation Status
 
-The first runnable Python scaffold has been started under [`main/`](main/). It includes the modular package, CLI, diagnostics, mock audio and vision backends, decision engine, multilingual caption labels, and SRT/JSON/CSV exports.
+The first runnable Python implementation has been started under [`main/`](main/). It includes the modular package, CLI, diagnostics, mock audio and vision backends, a CPU DSP audio backend, an OpenCV visual baseline, decision engine, multilingual caption labels, Streamlit UI client, and SRT/JSON/CSV exports.
 
 Current scaffold commands:
 
@@ -26,10 +26,46 @@ Current scaffold commands:
 cd main
 python -m cc_suggester doctor
 python -m cc_suggester analyze README.md --lang hi --device auto --out outputs
+python -m cc_suggester labels
 python -m pytest tests
 ```
 
-The mock backends are intentionally lightweight so the pipeline can be tested before large ML dependencies are added. The full implementation roadmap is maintained in [`docs/implementation-plan.md`](docs/implementation-plan.md).
+The mock backends remain for deterministic tests, while `--audio-backend dsp` and `--vision-backend opencv` provide local real-processing baselines. Heavy semantic models such as YAMNet, PANNs, AST, BEATs, and MediaPipe face/pose scoring are documented as next implementation steps in [`docs/implementation-plan.md`](docs/implementation-plan.md).
+
+## Interface Overview
+
+### Web UI Editor Review Workspace
+
+The Web UI is built as a modern editor workspace with **warm dark glassmorphism design** and full light/dark theme support. It features:
+
+- **Interactive video player** with event markers and draggable timeline
+- **Real-time review panel** for editing and accepting/rejecting captions
+- **Multilingual support** with live caption label switching
+- **Device & backend controls** for audio/vision model selection
+- **Comprehensive event table** with all confidence scores and reasoning
+
+#### Dark Mode (Default) — Hindi
+
+![Web UI Dark Mode with Hindi captions](docs/webui_hindi.png)
+
+The warm dark glassmorphism design features:
+- Deep amber/charcoal background with warm gold accents
+- Frosted glass panels with subtle warm-tinted borders
+- Smooth theme toggle (☀/🌙) for light/dark switching
+
+#### Multilingual Support
+
+**Telugu:**
+![Web UI Telugu](docs/webui_telugu.png)
+
+**Malayalam:**
+![Web UI Malayalam](docs/webui_malayalam.png)
+
+Caption labels update live across all panels when language is changed.
+
+#### Architecture & System Diagram
+
+![System Architecture](docs/Architecture.png)
 
 ## Problem Statement
 
