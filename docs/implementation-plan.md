@@ -67,7 +67,7 @@ Tasks:
 - Use `audio/extractor.py` to extract mono 16 kHz WAV files into the run directory. Done for the DSP backend when input is a video.
 - Add clear errors for missing audio streams, unsupported files, and ffmpeg failures. Done.
 - Save extracted audio path in debug output. Done for DSP events/artifacts.
-- Add small test fixtures or generated synthetic media for integration tests.
+- Add small test fixtures or generated synthetic media for integration tests. Done with `scripts/generate_sample_video.py`; tests skip when ffmpeg is unavailable.
 
 Acceptance checks:
 

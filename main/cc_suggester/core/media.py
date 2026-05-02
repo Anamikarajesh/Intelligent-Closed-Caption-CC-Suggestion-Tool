@@ -32,6 +32,7 @@ def inspect_video(path: Path) -> VideoMetadata:
     ffprobe = shutil.which("ffprobe")
     if ffprobe is None:
         metadata.probe_error = "ffprobe not found"
+        _inspect_with_opencv(metadata)
         return metadata
 
     command = [
@@ -81,6 +82,30 @@ def inspect_video(path: Path) -> VideoMetadata:
     return metadata
 
 
+def _inspect_with_opencv(metadata: VideoMetadata) -> None:
+    if metadata.path.suffix.lower() not in VIDEO_EXTENSIONS:
+        return
+    try:
+        import cv2  # type: ignore
+    except Exception:
+        return
+
+    capture = cv2.VideoCapture(str(metadata.path))
+    if not capture.isOpened():
+        return
+    try:
+        metadata.has_video = True
+        metadata.width = int(capture.get(cv2.CAP_PROP_FRAME_WIDTH)) or None
+        metadata.height = int(capture.get(cv2.CAP_PROP_FRAME_HEIGHT)) or None
+        fps = float(capture.get(cv2.CAP_PROP_FPS) or 0)
+        frame_count = float(capture.get(cv2.CAP_PROP_FRAME_COUNT) or 0)
+        metadata.fps = fps or None
+        metadata.duration = frame_count / fps if fps > 0 and frame_count > 0 else None
+        metadata.video_codec = "opencv-readable"
+    finally:
+        capture.release()
+
+
 def validate_media(
     metadata: VideoMetadata,
     *,
@@ -109,7 +134,7 @@ def validate_media(
             details={"suffix": suffix or "none"},
         )
 
-    if metadata.probe_error and not allow_probe_failure:
+    if metadata.probe_error and not allow_probe_failure and metadata.has_video is not True:
         raise InvalidMediaError(
             message="Video metadata could not be probed.",
             code="probe_failed",

@@ -109,5 +109,7 @@ def _motion_score(cv2, frames: list[object]) -> float:
     scores: list[float] = []
     for previous, current in zip(frames, frames[1:]):
         diff = cv2.absdiff(previous, current)
-        scores.append(float(diff.mean()) / 255.0)
+        mean_score = float(diff.mean()) / 255.0
+        changed_fraction = float((diff > 18).sum()) / float(diff.size)
+        scores.append(max(mean_score * 8.0, changed_fraction * 5.0))
     return max(scores) if scores else 0.0

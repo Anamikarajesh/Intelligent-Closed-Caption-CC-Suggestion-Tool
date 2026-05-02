@@ -51,12 +51,14 @@ def analyze_video(video_path: Path, config: PipelineConfig) -> PipelineResult:
             ],
         ) from exc
 
+    _validate_sidecar_audio(config)
     if audio_backend.requires_valid_media or vision_backend.requires_valid_media:
         is_audio_only_input = video_path.suffix.lower() in AUDIO_EXTENSIONS
+        require_audio = audio_backend.requires_audio_file and config.sidecar_audio_path is None
         validate_media(
             metadata,
             require_video=vision_backend.requires_valid_media or not is_audio_only_input,
-            require_audio=audio_backend.requires_audio_file,
+            require_audio=require_audio,
             allow_probe_failure=config.allow_demo_input or is_audio_only_input,
         )
 
@@ -72,7 +74,7 @@ def analyze_video(video_path: Path, config: PipelineConfig) -> PipelineResult:
         audio_events=audio_events,
         reactions=reactions,
         suggestions=suggestions,
-        artifacts=_collect_artifacts(run_dir),
+        artifacts=_collect_artifacts(run_dir, config),
     )
     result.files = _write_outputs(result, config)
     return result
@@ -103,12 +105,14 @@ def detect_audio_events(video_path: Path, config: PipelineConfig) -> dict[str, o
             suggestions=["Use --audio-backend mock or --audio-backend dsp."],
         ) from exc
 
+    _validate_sidecar_audio(config)
     if audio_backend.requires_valid_media:
         is_audio_only_input = video_path.suffix.lower() in AUDIO_EXTENSIONS
+        require_audio = audio_backend.requires_audio_file and config.sidecar_audio_path is None
         validate_media(
             metadata,
             require_video=not is_audio_only_input,
-            require_audio=audio_backend.requires_audio_file,
+            require_audio=require_audio,
             allow_probe_failure=config.allow_demo_input or is_audio_only_input,
         )
 
@@ -119,7 +123,7 @@ def detect_audio_events(video_path: Path, config: PipelineConfig) -> dict[str, o
         "metadata": metadata.to_dict(),
         "diagnostics": diagnostics.to_dict(),
         "audio_events": [event.to_dict() for event in events],
-        "artifacts": {name: str(path) for name, path in _collect_artifacts(run_dir).items()},
+        "artifacts": {name: str(path) for name, path in _collect_artifacts(run_dir, config).items()},
     }
     run_dir.mkdir(parents=True, exist_ok=True)
     report_path = write_json_report(payload, run_dir / "audio_events.json")
@@ -181,8 +185,25 @@ def _run_dir(output_dir: Path, video_path: Path) -> Path:
     return Path(output_dir) / safe_stem
 
 
-def _collect_artifacts(run_dir: Path) -> dict[str, Path]:
+def _collect_artifacts(run_dir: Path, config: PipelineConfig) -> dict[str, Path]:
     artifacts = {
         "audio_wav": run_dir / "artifacts" / "audio.wav",
     }
+    if config.sidecar_audio_path is not None:
+        artifacts["audio_wav"] = Path(config.sidecar_audio_path)
     return {name: path for name, path in artifacts.items() if path.exists()}
+
+
+def _validate_sidecar_audio(config: PipelineConfig) -> None:
+    if config.sidecar_audio_path is None:
+        return
+    if not Path(config.sidecar_audio_path).exists():
+        raise InputNotFoundError(
+            message=f"Sidecar audio file was not found: {config.sidecar_audio_path}",
+            code="sidecar_audio_not_found",
+            suggestions=[
+                "Check the --audio-path value.",
+                "Generate sample media with python scripts/generate_sample_video.py.",
+            ],
+            details={"audio_path": str(config.sidecar_audio_path)},
+        )

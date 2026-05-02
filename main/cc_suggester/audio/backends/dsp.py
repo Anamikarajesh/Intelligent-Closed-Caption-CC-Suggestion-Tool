@@ -86,6 +86,8 @@ class DspAudioBackend(AudioBackend):
         return events
 
     def _audio_path_for(self, video_path: Path, config: PipelineConfig) -> Path:
+        if config.sidecar_audio_path is not None:
+            return Path(config.sidecar_audio_path)
         if video_path.suffix.lower() == ".wav":
             return video_path
         run_dir = config.run_dir or config.output_dir / video_path.stem

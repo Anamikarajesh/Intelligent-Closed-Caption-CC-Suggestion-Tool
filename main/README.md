@@ -172,6 +172,31 @@ python -m cc_suggester labels
 
 The `analize` command is intentionally useful as a smoke check for friendly typo suggestions.
 
+## Real Sample Video Fixture
+
+Generate a tiny deterministic MP4 fixture for local integration testing:
+
+```bash
+python scripts/generate_sample_video.py
+```
+
+Then run:
+
+```bash
+python -m cc_suggester inspect tests/fixtures/sample_classroom.mp4
+python -m cc_suggester analyze tests/fixtures/sample_classroom.mp4 --audio-backend dsp --vision-backend mock --lang hi
+```
+
+If `ffmpeg` is available, the MP4 includes embedded audio. If `ffmpeg` is unavailable but OpenCV is installed, the script writes a video-only MP4 plus a sidecar WAV file:
+
+```bash
+python -m cc_suggester analyze tests/fixtures/sample_classroom.mp4 \
+  --audio-backend dsp \
+  --vision-backend opencv \
+  --audio-path tests/fixtures/sample_classroom.wav \
+  --lang hi
+```
+
 ## Immediate Next Sprint
 
 1. Implement `audio/backends/yamnet.py` with an offline model path or documented TensorFlow Hub setup.

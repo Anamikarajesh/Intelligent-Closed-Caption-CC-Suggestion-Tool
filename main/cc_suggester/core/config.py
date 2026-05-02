@@ -21,6 +21,7 @@ class PipelineConfig:
     audio_backend: str = "mock"
     vision_backend: str = "mock"
     output_dir: Path = Path("outputs")
+    sidecar_audio_path: Path | None = None
     audio_threshold: float = 0.45
     reaction_threshold: float = 0.35
     decision_threshold: float = 0.65
@@ -43,11 +44,14 @@ class PipelineConfig:
         self.output_dir = Path(self.output_dir)
         if self.run_dir is not None:
             self.run_dir = Path(self.run_dir)
+        if self.sidecar_audio_path is not None:
+            self.sidecar_audio_path = Path(self.sidecar_audio_path)
 
     def to_dict(self) -> dict[str, Any]:
         data = asdict(self)
         data["output_dir"] = str(self.output_dir)
         data["run_dir"] = str(self.run_dir) if self.run_dir else None
+        data["sidecar_audio_path"] = str(self.sidecar_audio_path) if self.sidecar_audio_path else None
         return data
 
 

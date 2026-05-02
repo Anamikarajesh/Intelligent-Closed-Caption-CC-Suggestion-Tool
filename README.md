@@ -32,6 +32,8 @@ python -m pytest tests
 
 The mock backends remain for deterministic tests, while `--audio-backend dsp` and `--vision-backend opencv` provide local real-processing baselines. Heavy semantic models such as YAMNet, PANNs, AST, BEATs, and MediaPipe face/pose scoring are documented as next implementation steps in [`docs/implementation-plan.md`](docs/implementation-plan.md).
 
+For environments without system ffmpeg, the sample generator can create an OpenCV video plus sidecar WAV file so the DSP/OpenCV path can still be tested locally.
+
 ## Interface Overview
 
 ### Web UI Editor Review Workspace
