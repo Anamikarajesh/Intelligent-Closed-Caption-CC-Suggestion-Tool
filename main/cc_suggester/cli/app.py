@@ -78,6 +78,9 @@ def _build_parser() -> FriendlyParser:
     audio.add_argument("--out", default=None, type=Path, help="Output root directory.")
     audio.add_argument("--audio-threshold", default=None, type=float, help="Audio event threshold.")
     audio.add_argument("--audio-path", default=None, type=Path, help="Optional sidecar WAV audio path.")
+    audio.add_argument("--yamnet-model", default=None, help="YAMNet TF Hub handle or local model directory.")
+    audio.add_argument("--yamnet-class-map", default=None, type=Path, help="YAMNet class map CSV path.")
+    audio.add_argument("--yamnet-top-k", default=None, type=int, help="Top YAMNet classes to inspect per frame.")
     audio.add_argument("--allow-demo-input", action="store_true", help="Allow non-video demo files.")
     audio.set_defaults(handler=_handle_audio)
 
@@ -130,6 +133,9 @@ def _handle_audio(args: argparse.Namespace) -> int:
         output_dir=args.out,
         audio_threshold=args.audio_threshold,
         sidecar_audio_path=args.audio_path,
+        yamnet_model=args.yamnet_model,
+        yamnet_class_map_path=args.yamnet_class_map,
+        yamnet_top_k=args.yamnet_top_k,
         allow_demo_input=args.allow_demo_input or None,
     )
     payload = detect_audio_events(args.input, config)
@@ -243,6 +249,9 @@ def _add_pipeline_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--out", default=None, type=Path, help="Output root directory.")
     parser.add_argument("--audio-threshold", default=None, type=float, help="Audio event threshold.")
     parser.add_argument("--audio-path", default=None, type=Path, help="Optional sidecar WAV audio path.")
+    parser.add_argument("--yamnet-model", default=None, help="YAMNet TF Hub handle or local model directory.")
+    parser.add_argument("--yamnet-class-map", default=None, type=Path, help="YAMNet class map CSV path.")
+    parser.add_argument("--yamnet-top-k", default=None, type=int, help="Top YAMNet classes to inspect per frame.")
     parser.add_argument("--decision-threshold", default=None, type=float, help="Accept threshold.")
     parser.add_argument("--review-threshold", default=None, type=float, help="Review threshold.")
     parser.add_argument("--allow-demo-input", action="store_true", help="Allow non-video demo files.")
@@ -259,6 +268,9 @@ def _config_from_args(args: argparse.Namespace) -> PipelineConfig:
         output_dir=args.out,
         audio_threshold=args.audio_threshold,
         sidecar_audio_path=args.audio_path,
+        yamnet_model=args.yamnet_model,
+        yamnet_class_map_path=args.yamnet_class_map,
+        yamnet_top_k=args.yamnet_top_k,
         decision_threshold=args.decision_threshold,
         review_threshold=args.review_threshold,
         allow_demo_input=args.allow_demo_input or None,

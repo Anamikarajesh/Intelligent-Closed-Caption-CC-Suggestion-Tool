@@ -22,6 +22,9 @@ class PipelineConfig:
     vision_backend: str = "mock"
     output_dir: Path = Path("outputs")
     sidecar_audio_path: Path | None = None
+    yamnet_model: str | None = None
+    yamnet_class_map_path: Path | None = None
+    yamnet_top_k: int = 5
     audio_threshold: float = 0.45
     reaction_threshold: float = 0.35
     decision_threshold: float = 0.65
@@ -46,12 +49,15 @@ class PipelineConfig:
             self.run_dir = Path(self.run_dir)
         if self.sidecar_audio_path is not None:
             self.sidecar_audio_path = Path(self.sidecar_audio_path)
+        if self.yamnet_class_map_path is not None:
+            self.yamnet_class_map_path = Path(self.yamnet_class_map_path)
 
     def to_dict(self) -> dict[str, Any]:
         data = asdict(self)
         data["output_dir"] = str(self.output_dir)
         data["run_dir"] = str(self.run_dir) if self.run_dir else None
         data["sidecar_audio_path"] = str(self.sidecar_audio_path) if self.sidecar_audio_path else None
+        data["yamnet_class_map_path"] = str(self.yamnet_class_map_path) if self.yamnet_class_map_path else None
         return data
 
 

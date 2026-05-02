@@ -88,6 +88,21 @@ Run only audio detection:
 python -m cc_suggester audio path/to/video.mp4 --audio-backend dsp --out outputs/
 ```
 
+Run the optional YAMNet backend after installing audio dependencies:
+
+```bash
+pip install -r requirements-audio.txt
+python -m cc_suggester audio path/to/video.mp4 --audio-backend yamnet --out outputs/
+```
+
+For offline environments, point YAMNet to a local TensorFlow Hub model directory:
+
+```bash
+python -m cc_suggester audio path/to/video.mp4 \
+  --audio-backend yamnet \
+  --yamnet-model /path/to/local/yamnet
+```
+
 Export another language from an existing JSON report:
 
 ```bash
@@ -144,7 +159,7 @@ Vision backends implement:
 analyze(video_path, metadata, audio_events, config) -> list[ReactionResult]
 ```
 
-The DSP audio backend and OpenCV vision backend are available as local baselines. The first semantic audio backend should be YAMNet. The first full visual reaction backend should be MediaPipe face/pose. Mock backends should remain available for tests and demos.
+The DSP audio backend and OpenCV vision backend are available as local baselines. YAMNet is implemented as an optional TensorFlow Hub backend and requires `requirements-audio.txt`. The first full visual reaction backend should be MediaPipe face/pose. Mock backends should remain available for tests and demos.
 
 ## Verification
 
@@ -199,11 +214,11 @@ python -m cc_suggester analyze tests/fixtures/sample_classroom.mp4 \
 
 ## Immediate Next Sprint
 
-1. Implement `audio/backends/yamnet.py` with an offline model path or documented TensorFlow Hub setup.
+1. Test YAMNet with an installed TensorFlow/TensorFlow Hub environment and a cached/local model.
 2. Implement real MediaPipe face/pose reaction scoring.
 3. Add `ccs vision` for visual scoring from existing audio event JSON.
-4. Add decision-rule and backend dependency tests.
-5. Add a small synthetic/sample video fixture for integration tests.
-6. Harden the Streamlit editor so manually accepted/rejected/edited captions drive exported SRT files.
+4. Add more decision-rule and backend dependency tests.
+5. Harden the Streamlit editor so manually accepted/rejected/edited captions drive exported SRT files.
+6. Add evaluation scripts for editor feedback.
 
 After that, add evaluation scripts and package the CPU pipeline with Docker.

@@ -90,21 +90,21 @@ Goal: replace the mock audio detector with a real sound event detection backend.
 
 Recommended first semantic backend: YAMNet.
 
-Status: DSP baseline implemented; YAMNet/PANNs/AST/BEATs remain future optional backends.
+Status: DSP baseline implemented; YAMNet optional backend implemented and requires TensorFlow/TensorFlow Hub; PANNs/AST/BEATs remain future optional backends.
 
 Tasks:
 
 - Add CPU DSP candidate detection backend. Done.
 - Add optional audio dependencies in `requirements-audio.txt`.
-- Implement `audio/backends/yamnet.py` behind the existing `AudioBackend` interface.
-- Convert video audio to the sample rate expected by the backend.
-- Run frame-level sound classification.
-- Map model class names to internal event IDs.
-- Add confidence thresholding.
-- Add event smoothing and merge adjacent detections.
-- Add ambient event suppression rules.
-- Keep raw model class names and scores in debug output.
-- Add backend selection through CLI: `--audio-backend yamnet`.
+- Implement `audio/backends/yamnet.py` behind the existing `AudioBackend` interface. Done.
+- Convert video audio to the sample rate expected by the backend. Done through extraction/WAV loading.
+- Run frame-level sound classification. Done when TensorFlow Hub dependencies/model are available.
+- Map model class names to internal event IDs. Done.
+- Add confidence thresholding. Done.
+- Add event smoothing and merge adjacent detections. Done through shared post-processing.
+- Add ambient event suppression rules. Done through decision penalties.
+- Keep raw model class names and scores in debug output. Done.
+- Add backend selection through CLI: `--audio-backend yamnet`. Done.
 
 Later audio backends:
 
@@ -381,12 +381,12 @@ These should remain separate from the core pipeline so the project stays maintai
 
 The next implementation sprint should be:
 
-1. Implement the first semantic YAMNet backend using an offline model path or documented dependency setup.
+1. Run YAMNet against a real cached/local TensorFlow Hub model and tune label mapping thresholds.
 2. Implement MediaPipe face/pose reaction scoring.
 3. Add `ccs vision` for visual scoring from existing audio event JSON.
 4. Add tests for backend registry errors and decision rules.
 5. Add CLI tests for `doctor`, missing input, and backend dependency failures.
-6. Create a small synthetic or sample video fixture for integration testing.
+6. Harden the Streamlit review/export workflow.
 
 This sequence keeps risk low because the existing mock pipeline continues to work while real media and model backends are added incrementally.
 

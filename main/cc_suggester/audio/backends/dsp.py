@@ -9,13 +9,12 @@ from __future__ import annotations
 
 import math
 import statistics
-import struct
-import wave
 from dataclasses import dataclass
 from pathlib import Path
 
 from cc_suggester.audio.backends.base import AudioBackend
 from cc_suggester.audio.extractor import extract_audio
+from cc_suggester.audio.wav import load_wav_mono_pcm
 from cc_suggester.core.config import PipelineConfig
 from cc_suggester.core.types import AudioEventCandidate, VideoMetadata
 
@@ -100,58 +99,25 @@ def _read_energy_windows(
     window_seconds: float = 0.50,
     hop_seconds: float = 0.25,
 ) -> list[EnergyWindow]:
-    with wave.open(str(audio_path), "rb") as wav:
-        sample_rate = wav.getframerate()
-        sample_width = wav.getsampwidth()
-        channels = wav.getnchannels()
-        frames = wav.readframes(wav.getnframes())
-
-    samples = _decode_pcm(frames, sample_width, channels)
+    wav = load_wav_mono_pcm(audio_path)
+    samples = wav.samples
     if not samples:
         return []
 
-    window_samples = max(1, int(sample_rate * window_seconds))
-    hop_samples = max(1, int(sample_rate * hop_seconds))
-    max_amplitude = float(2 ** (8 * sample_width - 1))
+    window_samples = max(1, int(wav.sample_rate * window_seconds))
+    hop_samples = max(1, int(wav.sample_rate * hop_seconds))
+    max_amplitude = float(2 ** (8 * wav.sample_width - 1))
 
     windows: list[EnergyWindow] = []
     for start_index in range(0, max(0, len(samples) - window_samples + 1), hop_samples):
         chunk = samples[start_index : start_index + window_samples]
         if len(chunk) < window_samples:
             break
-        start = start_index / sample_rate
+        start = start_index / wav.sample_rate
         end = start + window_seconds
         rms = math.sqrt(sum(sample * sample for sample in chunk) / len(chunk))
         windows.append(EnergyWindow(start=start, end=end, rms_norm=rms / max_amplitude))
     return windows
-
-
-def _decode_pcm(frames: bytes, sample_width: int, channels: int) -> list[int]:
-    if sample_width == 1:
-        values = [byte - 128 for byte in frames]
-    elif sample_width == 2:
-        count = len(frames) // 2
-        values = list(struct.unpack(f"<{count}h", frames[: count * 2]))
-    elif sample_width == 4:
-        count = len(frames) // 4
-        values = list(struct.unpack(f"<{count}i", frames[: count * 4]))
-    elif sample_width == 3:
-        values = [_decode_24bit(frames[index : index + 3]) for index in range(0, len(frames) - 2, 3)]
-    else:
-        return []
-
-    if channels <= 1:
-        return values
-
-    mono: list[int] = []
-    for index in range(0, len(values) - channels + 1, channels):
-        mono.append(int(sum(values[index : index + channels]) / channels))
-    return mono
-
-
-def _decode_24bit(chunk: bytes) -> int:
-    padded = chunk + (b"\xff" if chunk[2] & 0x80 else b"\x00")
-    return struct.unpack("<i", padded)[0]
 
 
 def _group_windows(windows: list[EnergyWindow], max_gap: float) -> list[list[EnergyWindow]]:
