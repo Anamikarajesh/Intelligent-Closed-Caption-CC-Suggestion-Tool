@@ -11,6 +11,23 @@ from cc_suggester.core.errors import BackendUnavailableError
 from cc_suggester.core.types import AudioEventCandidate, ReactionResult, VideoMetadata
 from cc_suggester.vision.backends.base import VisionBackend
 
+_MODEL_URL = (
+    "https://storage.googleapis.com/mediapipe-models/"
+    "pose_landmarker/pose_landmarker_lite/float16/latest/"
+    "pose_landmarker_lite.task"
+)
+
+
+def _ensure_model() -> Path:
+    import os
+    cache_dir = Path(os.path.expanduser("~/.cache/cc_suggester"))
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    model_path = cache_dir / "pose_landmarker_lite.task"
+    if not model_path.exists():
+        import urllib.request
+        urllib.request.urlretrieve(_MODEL_URL, model_path)
+    return model_path
+
 
 class MediaPipeVisionBackend(VisionBackend):
     """Estimate pose-based reaction signals around audio events."""
@@ -25,7 +42,7 @@ class MediaPipeVisionBackend(VisionBackend):
         audio_events: list[AudioEventCandidate],
         config: PipelineConfig,
     ) -> list[ReactionResult]:
-        cv2, mp = _import_dependencies()
+        cv2, mp, PoseLandmarker, VisionTaskRunningMode, BaseOptions = _import_dependencies()
         capture = cv2.VideoCapture(str(video_path))
         if not capture.isOpened():
             raise BackendUnavailableError(
@@ -39,12 +56,17 @@ class MediaPipeVisionBackend(VisionBackend):
 
         fps = metadata.fps or capture.get(cv2.CAP_PROP_FPS) or 25.0
         results: list[ReactionResult] = []
-        pose = mp.solutions.pose.Pose(
-            static_image_mode=True,
-            model_complexity=1,
-            enable_segmentation=False,
-            min_detection_confidence=0.4,
+
+        from mediapipe.tasks.python.vision import PoseLandmarkerOptions
+        model_path = _ensure_model()
+        options = PoseLandmarkerOptions(
+            base_options=BaseOptions(model_asset_path=str(model_path)),
+            running_mode=VisionTaskRunningMode.IMAGE,
+            num_poses=1,
+            min_pose_detection_confidence=0.4,
+            output_segmentation_masks=False,
         )
+        pose = PoseLandmarker.create_from_options(options)
         try:
             for event in audio_events:
                 frames = _sample_frames(cv2, capture, fps, _event_offsets(event, config))
@@ -83,6 +105,9 @@ def _import_dependencies():
     try:
         import cv2  # type: ignore
         import mediapipe as mp  # type: ignore
+        from mediapipe.tasks.python.vision import PoseLandmarker
+        from mediapipe.tasks.python.vision.core.vision_task_running_mode import VisionTaskRunningMode
+        from mediapipe.tasks.python.core.base_options import BaseOptions
     except Exception as exc:
         raise BackendUnavailableError(
             message="The MediaPipe vision backend requires mediapipe and opencv-python.",
@@ -94,7 +119,7 @@ def _import_dependencies():
             ],
             details={"error": str(exc)},
         ) from exc
-    return cv2, mp
+    return cv2, mp, PoseLandmarker, VisionTaskRunningMode, BaseOptions
 
 
 def _event_offsets(event: AudioEventCandidate, config: PipelineConfig) -> list[float]:
@@ -122,10 +147,11 @@ def _sample_frames(cv2, capture, fps: float, offsets: list[float]) -> list[Any]:
 
 def _pose_landmarks(cv2, mp, pose, frame) -> list[tuple[float, float, float]] | None:
     rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-    result = pose.process(rgb)
+    mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb)
+    result = pose.detect(mp_image)
     if not result.pose_landmarks:
         return None
-    return [(landmark.x, landmark.y, landmark.visibility) for landmark in result.pose_landmarks.landmark]
+    return [(lm.x, lm.y, lm.visibility) for lm in result.pose_landmarks[0]]
 
 
 def _landmark_motion(frames: list[list[tuple[float, float, float]]]) -> float:
